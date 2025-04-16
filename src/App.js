@@ -171,7 +171,7 @@ function App() {
   };
 
   const addOverlay = () => {
-    setOverlayData([...overlayData, dataPoints]);
+    setOverlayData([...overlayData, { ...dataPoints, params: [...params] }]);
   };
 
   const downloadCSV = () => {
@@ -208,8 +208,8 @@ function App() {
       ...overlayData.map((set, i) => ({
         label: `Overlay ${i + 1}`,
         data: set.x.map((x, j) => ({ x, y: set.y[j] })), // ✅ overlay with pairs too
-        borderColor: `hsl(${i * 60}, 70%, 50%)`,
-        borderWidth: 1,
+        borderColor: `hsl(${(i * 50 + 120) % 360}, 70%, 50%)`,
+        borderWidth: selectedOverlayIndex === i ? 3 : 1,
         pointRadius: 0,
         tension: 0,
         fill: false,
@@ -305,7 +305,7 @@ function App() {
               }}>{s.label}:</label>
               <input
                 type='number'
-                value={params[i]}
+                value={selectedOverlayIndex === null ? params[i] : overlayData[selectedOverlayIndex].params ? overlayData[selectedOverlayIndex].params[i] : params[i]}
                 step={s.step}
                 min={s.min}
                 max={s.max}
@@ -323,7 +323,7 @@ function App() {
                 min={s.min}
                 max={s.max}
                 step={s.step}
-                value={params[i]}
+                value={selectedOverlayIndex === null ? params[i] : overlayData[selectedOverlayIndex].params ? overlayData[selectedOverlayIndex].params[i] : params[i]}
                 onChange={(e) => handleChange(i, e)}
                 style={{ width: 'calc(100% - 110px)' }}
               />
@@ -338,7 +338,7 @@ function App() {
               borderRadius: '5px',
               cursor: 'pointer',
               marginRight: '10px'
-            }}>Overlay Curve</button>
+            }}>Add a curve</button>
             <button onClick={downloadCSV} style={{
               backgroundColor: '#28a745',
               color: '#fff',
