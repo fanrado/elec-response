@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 // A Plotly-based React app to explore the 'response' function with 7 parameters using backend API
 import { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
@@ -19,6 +20,7 @@ function App() {
   const [dataPoints, setDataPoints] = useState({ x: [], y: [] });
   const [overlayData, setOverlayData] = useState([]);
   const [showZeroLine, setShowZeroLine] = useState(true);
+  const [selectedOverlayIndex, setSelectedOverlayIndex] = useState(null);
 
   const generateX = () => Array.from({ length: 5000 }, (_, i) => i * 0.01); // 0 to 50 us
 
@@ -132,16 +134,40 @@ function App() {
   }, [params]); // Recalculate when params change
 
   const handleChange = (index, event) => {
-    const newParams = [...params];
-    newParams[index] = parseFloat(event.target.value);
-    setParams(newParams);
+    const newValue = parseFloat(event.target.value);
+    if (selectedOverlayIndex === null) {
+      const newParams = [...params];
+      newParams[index] = newValue;
+      setParams(newParams);
+    } else {
+      const newOverlayData = [...overlayData];
+      const selectedOverlay = newOverlayData[selectedOverlayIndex];
+      const x = selectedOverlay.x;
+      const newParams = [...params];
+      newParams[index] = newValue;
+      const newY = x.map(val => response(val, newParams));
+      newOverlayData[selectedOverlayIndex] = { x, y: newY };
+      setOverlayData(newOverlayData);
+    }
   };
 
 
   const handleInputChange = (index, event) => {
-    const newParams = [...params];
-    newParams[index] = Number(event.target.value);
-    setParams(newParams);
+    const newValue = Number(event.target.value);
+    if (selectedOverlayIndex === null) {
+      const newParams = [...params];
+      newParams[index] = newValue;
+      setParams(newParams);
+    } else {
+      const newOverlayData = [...overlayData];
+      const selectedOverlay = newOverlayData[selectedOverlayIndex];
+      const x = selectedOverlay.x;
+      const newParams = [...params];
+      newParams[index] = newValue;
+      const newY = x.map(val => response(val, newParams));
+      newOverlayData[selectedOverlayIndex] = { x, y: newY };
+      setOverlayData(newOverlayData);
+    }
   };
 
   const addOverlay = () => {
@@ -235,13 +261,48 @@ function App() {
 
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Electronics Response Function Visualizer</h2>
-      <div style={{ display: 'flex', gap: '40px' }}>
-        <div style={{ flex: '0 0 300px' }}>
+    <div style={{
+      padding: '30px',
+      backgroundColor: '#f8f9fa',
+      borderRadius: '10px',
+      boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+    }}>
+      <h2 style={{
+        marginBottom: '20px',
+        textAlign: 'center',
+        color: '#343a40',
+      }}>Electronics Response Function Visualizer</h2>
+      <div style={{ display: 'flex', overflow: 'auto' }}>
+        <div style={{ flex: 1, overflowX: 'auto' }}>
+          <Line data={chartData} options={chartOptions} />
+        </div>
+
+        <div style={{
+          width: '300px',
+          flexShrink: 0,
+          paddingLeft: '20px',
+          borderLeft: '1px solid #ced4da',
+          maxHeight: '80vh',
+          overflowY: 'auto'
+        }}>
+          <select
+            value={selectedOverlayIndex === null ? 'default' : selectedOverlayIndex}
+            onChange={(e) => setSelectedOverlayIndex(e.target.value === 'default' ? null : parseInt(e.target.value))}
+            style={{ marginBottom: '10px', width: '100%', padding: '5px', borderRadius: '5px' }}
+          >
+            <option value="default">Base Curve</option>
+            {overlayData.map((_, index) => (
+              <option key={index} value={index}>Overlay {index + 1}</option>
+            ))}
+          </select>
           {sliders.map((s, i) => (
-            <div key={i} style={{ marginBottom: 16 }}>
-              <label>{s.label}: </label>
+            <div key={i} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+              <label style={{
+                width: '30px',
+                fontWeight: 'bold',
+                color: '#495057',
+                marginRight: '5px'
+              }}>{s.label}:</label>
               <input
                 type='number'
                 value={params[i]}
@@ -249,7 +310,13 @@ function App() {
                 min={s.min}
                 max={s.max}
                 onChange={(e) => handleInputChange(i, e)}
-                style={{ width: '100%', marginBottom: '4px' }}
+                style={{
+                  width: '70px',
+                  padding: '5px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px',
+                  marginRight: '5px'
+                }}
               />
               <input
                 type='range'
@@ -258,16 +325,31 @@ function App() {
                 step={s.step}
                 value={params[i]}
                 onChange={(e) => handleChange(i, e)}
-                style={{ width: '100%' }}
+                style={{ width: 'calc(100% - 110px)' }}
               />
             </div>
           ))}
-
-          <button onClick={addOverlay}>Overlay Curve</button>
-          <button onClick={downloadCSV} style={{ marginLeft: 10 }}>Download CSV</button>
-
+          <div style={{ display: 'flex', marginBottom: '10px' }}>
+            <button onClick={addOverlay} style={{
+              backgroundColor: '#007bff',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              marginRight: '10px'
+            }}>Overlay Curve</button>
+            <button onClick={downloadCSV} style={{
+              backgroundColor: '#28a745',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}>Download CSV</button>
+          </div>
           <div style={{ marginTop: '1rem' }}>
-            <label>
+            <label style={{ color: '#495057' }}>
               <input
                 type="checkbox"
                 checked={showZeroLine}
@@ -277,13 +359,9 @@ function App() {
             </label>
           </div>
         </div>
-
-        <div style={{ flex: 1 }}>
-          <Line data={chartData} options={chartOptions} />
-        </div>
       </div>
     </div>
   );
 }
-
+ 
 export default App;
