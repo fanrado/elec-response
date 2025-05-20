@@ -2,6 +2,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 // A Plotly-based React app to explore the 'response' function with 7 parameters using backend API
 import { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
+import annotationPlugin from 'chartjs-plugin-annotation';
+
 import {
   Chart as ChartJS,
   LineElement,
@@ -12,7 +14,7 @@ import {
   Legend
 } from 'chart.js';
 
-ChartJS.register(LineElement, PointElement, LinearScale, Title, CategoryScale, Legend);
+ChartJS.register(LineElement, PointElement, LinearScale, Title, CategoryScale, Legend, annotationPlugin);
 
 function App() {
 
@@ -22,7 +24,12 @@ function App() {
   const [showZeroLine, setShowZeroLine] = useState(true);
   const [selectedOverlayIndex, setSelectedOverlayIndex] = useState(null);
 
+  // add a new state for pos_peak
+  const [posPeak, setPosPeak] = useState(null);
+  const [tailOffset, setTailOffset] = useState(6); // Default value is 6
+
   const generateX = () => Array.from({ length: 5000 }, (_, i) => i * 0.01); // 0 to 50 us
+  // const generateX = () => Array.from({ length: 70 }, (_, i) => i * 1); // 0 to 50 us
 
   // Translated JavaScript response function
   function response(x, par) {
@@ -181,9 +188,12 @@ function App() {
     const pos_peak = R_ideal.indexOf(Math.max(...R_ideal));
 
     // Define the tail region
-    const xtail = x.slice(pos_peak + 6);
-    const y1 = R.slice(pos_peak + 6);
-    const y2 = R_ideal.slice(pos_peak + 6);
+    // const xtail = x.slice(pos_peak + 6);
+    // const y1 = R.slice(pos_peak + 6);
+    // const y2 = R_ideal.slice(pos_peak + 6);
+    const xtail = x.slice(pos_peak + tailOffset);
+    const y1 = R.slice(pos_peak + tailOffset);
+    const y2 = R_ideal.slice(pos_peak + tailOffset);
 
     // Select data for integration
     const x_selected = xtail.slice(0, 50); // Fixed integration domain
@@ -209,8 +219,6 @@ function App() {
     const x = generateX();
     const y = x.map(val => response(val, params));
     const yIdeal = x.map(val => responseLegacy(val, params)); // Calculate the ideal response
-    console.log("yIdeal", yIdeal);
-    console.log("x", x);
     setDataPoints({ x, y, yIdeal }); // Store both response and ideal response
   }, [params]); // Recalculate when params change
 
@@ -315,7 +323,55 @@ function App() {
       title: {
         display: true,
         text: 'Response Function Value vs. Time'
-      }
+      },
+      // Draw a rectangle highlighting the region selected for the calculation of the integral of the tail
+      annotation: {
+        annotations: {
+          tailRegion: posPeak != null && {
+            type: 'box',
+            // xMin: dataPoints.x[posPeak + 6/0.01], // Start of the tail region
+            // xMax: dataPoints.x[posPeak + 50/0.01], // End of the tail region
+            // yMin: Math.min(...dataPoints.y), // Minimum y-value
+            // // yMax: Math.max(...dataPoints.y), // Maximum y-value
+            // yMax: Math.max(...dataPoints.y.slice(posPeak + 6/0.01)), // Maximum y-value from posPeak + 6
+            xMin: dataPoints.x[posPeak + tailOffset / 0.01], // Start of the tail region
+            xMax: dataPoints.x[posPeak + (tailOffset + 50) / 0.01], // End of the tail region
+            yMin: Math.min(...dataPoints.y), // Minimum y-value
+            yMax: Math.max(...dataPoints.y.slice(posPeak + tailOffset / 0.01)), // Maximum y-value from posPeak + tailOffset
+            backgroundColor: 'rgba(0, 0, 255, 0.1)', // Light blue
+            borderColor: 'blue',
+            borderWidth: 1,
+            label: {
+              display: true, // Enable the label
+              content: 'Selected Tail', // Text to display
+              position: 'center', // Position the label in the center of the box
+              color: 'black', // Text color
+              backgroundColor: 'rgba(255, 255, 255, 0.8)', // Background color for the label
+              font: {
+                size: 14, // Font size
+                weight: 'bold', // Font weight
+              },
+            },
+          },
+        },
+      },
+    },
+    // Add a zooming option
+    zoom: {
+      pan: {
+        enabled: true, // Enable panning
+        mode: 'xy', // Allow panning in both directions
+      },
+      zoom: {
+        wheel: {
+          enabled: true, // Enable zooming with the mouse wheel
+        },
+        drag: {
+          enabled: true, // Enable zooming by dragging
+          backgroundColor: 'rgba(0, 0, 0, 0.1)', // Background color of the drag rectangle
+        },
+        mode: 'xy', // Allow zooming in both directions
+      },
     },
     scales: {
       x: {
@@ -372,6 +428,21 @@ function App() {
     maxDeviation: 'Unknown',
     responseClass: 'Unknown',
   });
+
+  // Reset the canvas
+  const resetCanvas = () => {
+    setParams([5, 75000, 2.2, 0.1, 0.1, 0.03, 0.03]); // Reset parameters to default
+    setOverlayData([]); // Clear overlays
+    setTailOffset(6); // Reset tail offset to default
+    setSelectedOverlayIndex(null); // Deselect any overlays
+    setResponseMetrics({
+      integralOfTail: 'Unknown',
+      maxDeviation: 'Unknown',
+      responseClass: 'Unknown',
+    }); // Reset response metrics
+  };
+
+  // useEffect functions
   useEffect(() => {
     const x = generateX();
     const y = x.map(val => response(val, params));
@@ -381,7 +452,21 @@ function App() {
     // Calculate metrics
     const metrics = calculateMetrics(params);
     setResponseMetrics(metrics);
+
+    // Find the peak in the ideal response
+    const pos_peak = yIdeal.indexOf(Math.max(...yIdeal));
+    setPosPeak(pos_peak); // Store pos_peak in state
   }, [params]); // Recalculate when params change
+
+  // Recalculate metrics when tailOffset changes
+  useEffect(() => {
+    if (posPeak !== null) {
+      const metrics = calculateMetrics(params);
+      setResponseMetrics(metrics);
+    }
+  }, [tailOffset, params, posPeak]); // Dependencies include tailOffset, params, and posPeak
+
+
 
   // Return
   return (
@@ -483,72 +568,103 @@ function App() {
             </label>
           </div>
           
-            <div style={{ display: 'flex', marginBottom: '10px' }}>
-              <button onClick={() => setShowInputModal(true)} style={{
-                backgroundColor: '#0000ff',
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <button onClick={() => setShowInputModal(true)} style={{
+              backgroundColor: '#0000ff',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}>Input Params</button>
+            
+            <button
+              onClick={resetCanvas}
+              style={{
+                backgroundColor: '#dc3545',
                 color: '#fff',
                 border: 'none',
                 padding: '10px 20px',
                 borderRadius: '5px',
-                cursor: 'pointer'
-              }}>Input Parameters</button>
-            </div>
+                cursor: 'pointer',
+              }}
+            >
+              Reset Canvas
+            </button>
+          </div>
 
-            {showInputModal && (
-              <div style={{
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: '#fff',
-                padding: '20px',
-                borderRadius: '10px',
-                boxShadow: '0 0 10px rgba(0, 0, 0, 0.3)',
-                zIndex: 1000
+          {/*Slider changing the tailOffset */}
+          <div style={{ marginTop: '20px' }}>
+            <label style={{ color: '#495057', fontWeight: 'bold', marginRight: '10px' }}>
+              Tail Offset:
+            </label>
+            <input
+              type="range"
+              min={-6} // Minimum value for the offset
+              max={20} // Maximum value for the offset
+              step={1} // Step size
+              value={tailOffset}
+              onChange={(e) => setTailOffset(Number(e.target.value))}
+              style={{ width: '200px' }}
+            />
+            <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>{tailOffset}</span>
+          </div>
+
+          {showInputModal && (
+            <div style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: '#fff',
+              padding: '20px',
+              borderRadius: '10px',
+              boxShadow: '0 0 10px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
               }}>
-                <h4 style={{ marginBottom: '10px' }}>Paste Parameters (A₀, tₚ, k₃, k₄, k₅, k₆)</h4>
-                <textarea
-                  rows="3"
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #ced4da',
-                    borderRadius: '5px',
-                    marginBottom: '10px'
-                  }}
-                  placeholder="e.g. 75000,2.2,0.1,0.1,0.03,0.03"
-                  value={inputValues}
-                  onChange={(e) => setInputValues(e.target.value)}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <button onClick={applyInputValues} style={{
-                    backgroundColor: '#28a745',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}>Apply</button>
-                  {/*Add a clear button */}
-                  <button onClick={() => setInputValues('')} style={{
-                    backgroundColor: '#0f0f0f',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}>Clear</button>
-                  <button onClick={() => setShowInputModal(false)} style={{
-                    backgroundColor: '#dc3545',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}>Cancel</button>
-                </div>
+              <h4 style={{ marginBottom: '10px' }}>Paste Parameters (A₀, tₚ, k₃, k₄, k₅, k₆)</h4>
+              <textarea
+                rows="3"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '5px',
+                  marginBottom: '10px'
+                }}
+                placeholder="e.g. 75000,2.2,0.1,0.1,0.03,0.03"
+                value={inputValues}
+                onChange={(e) => setInputValues(e.target.value)}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <button onClick={applyInputValues} style={{
+                  backgroundColor: '#28a745',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}>Apply</button>
+                {/*Add a clear button */}
+                <button onClick={() => setInputValues('')} style={{
+                  backgroundColor: '#0f0f0f',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}>Clear</button>
+                <button onClick={() => setShowInputModal(false)} style={{
+                  backgroundColor: '#dc3545',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}>Cancel</button>
               </div>
-            )}
+            </div>
+          )}
 
           {/*Adding the table showing the integral, max deviation, and class*/}
           {/* Table for response metrics */}
@@ -584,7 +700,7 @@ function App() {
               </tbody>
             </table>
           </div>          
-
+          
         </div>
       </div>
     </div>
