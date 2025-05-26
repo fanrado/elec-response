@@ -18,11 +18,12 @@ ChartJS.register(LineElement, PointElement, LinearScale, Title, CategoryScale, L
 
 function App() {
 
-  const [params, setParams] = useState([5, 75000, 2.2, 0.1, 0.1, 0.03, 0.03]);
+  const [params, setParams] = useState([5, 75000, 2.2, 0.1, 0.1, 0.03, 0.03]); // t, A0, t_p, k3, k4, k5, k6
   const [dataPoints, setDataPoints] = useState({ x: [], y: [] });
-  const [overlayData, setOverlayData] = useState([]);
+  // const [overlayData, setOverlayData] = useState([]);
   const [showZeroLine, setShowZeroLine] = useState(true);
-  const [selectedOverlayIndex, setSelectedOverlayIndex] = useState(null);
+  // const [selectedOverlayIndex, setSelectedOverlayIndex] = useState(null);
+  const [dataId, setDataId] = useState(''); // State to store the data_id
 
   // add a new state for pos_peak
   const [posPeak, setPosPeak] = useState(null);
@@ -134,7 +135,7 @@ function App() {
     }
   }
 
-  {/*Convert response legacy to javascript */}
+  // {/*Convert response legacy to javascript */}
   function responseLegacy(x, par) {
     // const t = x.map(val => val - par[0]);
     const t = x - par[0];
@@ -168,52 +169,58 @@ function App() {
     return t>0 ? value : 0;
   }
 
-  // Helper function for trapezoidal integration
-  function trapezoidalIntegration(x, y) {
-    let integral = 0;
-    for (let i = 0; i < x.length - 1; i++) {
-      integral += 0.5 * (x[i + 1] - x[i]) * (y[i] + y[i + 1]);
-    }
-    return integral;
-  }
+  // // Helper function for trapezoidal integration
+  // function trapezoidalIntegration(x, y) {
+  //   let integral = 0;
+  //   for (let i = 0; i < x.length - 1; i++) {
+  //     integral += 0.5 * (x[i + 1] - x[i]) * (y[i] + y[i + 1]);
+  //   }
+  //   return integral;
+  // }
 
-  // Calculate the integral of the tail and the maximum deviation of the tail of the real response from the ideal
-  function calculateMetrics(params) {
-    const x = generateX();
-    const R = x.map(val => response(val, params));
-    // x = generateX();
-    const R_ideal = x.map(val => responseLegacy(val, params));
+  // // Calculate the integral of the tail and the maximum deviation of the tail of the real response from the ideal
+  // function calculateMetrics(params) {
+  //   const x = generateX();
+  //   const R = x.map(val => response(val, params));
+  //   // x = generateX();
+  //   const R_ideal = x.map(val => responseLegacy(val, params));
 
-    // Find the peak in the ideal response
-    const pos_peak = R_ideal.indexOf(Math.max(...R_ideal));
+  //   // Find the peak in the ideal response
+  //   const pos_peak = R_ideal.indexOf(Math.max(...R_ideal));
 
-    // Define the tail region
-    // const xtail = x.slice(pos_peak + 6);
-    // const y1 = R.slice(pos_peak + 6);
-    // const y2 = R_ideal.slice(pos_peak + 6);
-    const xtail = x.slice(pos_peak + tailOffset);
-    const y1 = R.slice(pos_peak + tailOffset);
-    const y2 = R_ideal.slice(pos_peak + tailOffset);
+  //   // Define the tail region
+  //   // const xtail = x.slice(pos_peak + 6);
+  //   // const y1 = R.slice(pos_peak + 6);
+  //   // const y2 = R_ideal.slice(pos_peak + 6);
+  //   const xtail = x.slice(pos_peak + tailOffset);
+  //   const y1 = R.slice(pos_peak + tailOffset);
+  //   const y2 = R_ideal.slice(pos_peak + tailOffset);
 
-    // Select data for integration
-    const x_selected = xtail.slice(0, 50); // Fixed integration domain
-    const R_selected = y1.slice(0, 50);
-    const R_ideal_selected = y2.slice(0, 50);
+  //   // Select data for integration
+  //   const x_selected = xtail.slice(0, 50); // Fixed integration domain
+  //   const R_selected = y1.slice(0, 50);
+  //   const R_ideal_selected = y2.slice(0, 50);
 
-    // Calculate integrals using the trapezoidal rule
-    const integral_R_selected = trapezoidalIntegration(x_selected, R_selected);
-    const integral_R_ideal_selected = trapezoidalIntegration(x_selected, R_ideal_selected);
+  //   // Calculate integrals using the trapezoidal rule
+  //   const integral_R_selected = trapezoidalIntegration(x_selected, R_selected);
+  //   // const integral_R_ideal_selected = trapezoidalIntegration(x_selected, R_ideal_selected);
 
-    // Calculate deviations
-    const deviations = R_selected.map((val, i) => val - R_ideal_selected[i]);
-    const max_deviation = Math.max(...deviations.map(Math.abs));
+  //   // Calculate deviations
+  //   const deviations = R_selected.map((val, i) => val - R_ideal_selected[i]);
+  //   // const max_deviation = Math.max(...deviations.map(Math.abs));
+  //   let max_dev = Math.max(...deviations);
+  //   let min_dev = Math.min(...deviations);
+  //   let max_deviation = max_dev;
+  //   if (max_deviation < Math.abs(min_dev)) {
+  //     max_deviation = min_dev;
+  //   }
 
-    return {
-      integralOfTail: integral_R_selected.toFixed(2),
-      maxDeviation: max_deviation.toFixed(2),
-      responseClass: "Unknown" // Placeholder for now
-    };
-  }
+  //   return {
+  //     integralOfTail: integral_R_selected.toFixed(2),
+  //     maxDeviation: max_deviation.toFixed(2),
+  //     responseClass: "Unknown" // Placeholder for now
+  //   };
+  // }
 
   useEffect(() => {
     const x = generateX();
@@ -222,67 +229,96 @@ function App() {
     setDataPoints({ x, y, yIdeal }); // Store both response and ideal response
   }, [params]); // Recalculate when params change
 
-  const handleChange = (index, event) => {
-    const newValue = parseFloat(event.target.value);
-    if (selectedOverlayIndex === null) {
-      const newParams = [...params];
-      newParams[index] = newValue;
-      setParams(newParams);
-    } else {
-      const newOverlayData = [...overlayData];
-      const selectedOverlay = newOverlayData[selectedOverlayIndex];
-      const x = selectedOverlay.x;
-      const newParams = [...params];
-      newParams[index] = newValue;
-      const newY = x.map(val => response(val, newParams));
-      newOverlayData[selectedOverlayIndex] = { x, y: newY };
-      setOverlayData(newOverlayData);
+  // const handleChange = (index, event) => {
+  //   const newValue = parseFloat(event.target.value);
+  //   if (selectedOverlayIndex === null) {
+  //     const newParams = [...params];
+  //     newParams[index] = newValue;
+  //     setParams(newParams);
+  //   } else {
+  //     const newOverlayData = [...overlayData];
+  //     const selectedOverlay = newOverlayData[selectedOverlayIndex];
+  //     const x = selectedOverlay.x;
+  //     const newParams = [...params];
+  //     newParams[index] = newValue;
+  //     const newY = x.map(val => response(val, newParams));
+  //     newOverlayData[selectedOverlayIndex] = { x, y: newY };
+  //     setOverlayData(newOverlayData);
+  //   }
+  // };
+
+
+  // const handleInputChange = (index, event) => {
+  //   const newValue = Number(event.target.value);
+  //   if (selectedOverlayIndex === null) {
+  //     const newParams = [...params];
+  //     newParams[index] = newValue;
+  //     setParams(newParams);
+  //   } else {
+  //     const newOverlayData = [...overlayData];
+  //     const selectedOverlay = newOverlayData[selectedOverlayIndex];
+  //     const x = selectedOverlay.x;
+  //     const newParams = [...params];
+  //     newParams[index] = newValue;
+  //     const newY = x.map(val => response(val, newParams));
+  //     newOverlayData[selectedOverlayIndex] = { x, y: newY };
+  //     setOverlayData(newOverlayData);
+  //   }
+  // };
+
+  // const addOverlay = () => {
+  //   setOverlayData([...overlayData, { ...dataPoints, params: [...params] }]);
+  // };
+
+  // const downloadCSV = () => {
+  //   const { x, y } = dataPoints;
+  //   const csv = ['time,response', ...x.map((t, i) => `${t},${y[i]}`)].join('\n');
+  //   const blob = new Blob([csv], { type: 'text/csv' });
+  //   const a = document.createElement('a');
+  //   a.href = URL.createObjectURL(blob);
+  //   a.download = 'response_curve.csv';
+  //   a.click();
+  // };
+
+  // const sliders = [
+  //   { label: 't₀', min: 4.6, max: 5.5, step: 0.01 },
+  //   { label: 'A₀', min: 0, max: 100000, step: 1000 },
+  //   { label: 'tₚ', min: 1.9, max: 2.3, step: 0.01 },
+  //   { label: 'k₃', min: -10, max: 10, step: 0.01 },
+  //   { label: 'k₄', min: -10, max: 10, step: 0.01 },
+  //   { label: 'k₅', min: -10, max: 10, step: 0.01 },
+  //   { label: 'k₆', min: -10, max: 10, step: 0.01 },
+  // ];
+
+
+  // fetch the data
+  const fetchDataById = async (data_id) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/data/${data_id}`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch data from the API');
+      }
+
+      const data = await response.json();
+      // console.log(data);
+      // t, A0, t_p, k3, k4, k5, k6
+      setParams([data.t, data.A_0, data.t_p, data.k3, data.k4, data.k5, data.k6]);
+      // console.log(params);
+      // setDataPoints({ x: data.x, y: data.y }); // Update the dataPoints state with the API response
+      setResponseMetrics({
+        integralOfTail: data.integral_R,
+        maxDeviation: data.max_deviation,
+        responseClass: data.class
+      })
+    } catch (error) {
+      console.error('Error fetching data from API:', error);
     }
   };
 
-
-  const handleInputChange = (index, event) => {
-    const newValue = Number(event.target.value);
-    if (selectedOverlayIndex === null) {
-      const newParams = [...params];
-      newParams[index] = newValue;
-      setParams(newParams);
-    } else {
-      const newOverlayData = [...overlayData];
-      const selectedOverlay = newOverlayData[selectedOverlayIndex];
-      const x = selectedOverlay.x;
-      const newParams = [...params];
-      newParams[index] = newValue;
-      const newY = x.map(val => response(val, newParams));
-      newOverlayData[selectedOverlayIndex] = { x, y: newY };
-      setOverlayData(newOverlayData);
-    }
-  };
-
-  const addOverlay = () => {
-    setOverlayData([...overlayData, { ...dataPoints, params: [...params] }]);
-  };
-
-  const downloadCSV = () => {
-    const { x, y } = dataPoints;
-    const csv = ['time,response', ...x.map((t, i) => `${t},${y[i]}`)].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'response_curve.csv';
-    a.click();
-  };
-
-  const sliders = [
-    { label: 't₀', min: 4.6, max: 5.5, step: 0.01 },
-    { label: 'A₀', min: 0, max: 100000, step: 1000 },
-    { label: 'tₚ', min: 1.9, max: 2.3, step: 0.01 },
-    { label: 'k₃', min: -10, max: 10, step: 0.01 },
-    { label: 'k₄', min: -10, max: 10, step: 0.01 },
-    { label: 'k₅', min: -10, max: 10, step: 0.01 },
-    { label: 'k₆', min: -10, max: 10, step: 0.01 },
-  ];
-
+  //
   const chartData = {
     datasets: [
       {
@@ -304,15 +340,15 @@ function App() {
         fill: false,
         borderDash: [5, 5], // Dashed line for distinction
       },
-      ...overlayData.map((set, i) => ({
-        label: `Overlay ${i + 1}`,
-        data: set.x.map((x, j) => ({ x, y: set.y[j] })), // ✅ overlay with pairs too
-        borderColor: `hsl(${(i * 50 + 120) % 360}, 70%, 50%)`,
-        borderWidth: selectedOverlayIndex === i ? 3 : 1,
-        pointRadius: 0,
-        tension: 0,
-        fill: false,
-      }))
+      // ...overlayData.map((set, i) => ({
+      //   label: `Overlay ${i + 1}`,
+      //   data: set.x.map((x, j) => ({ x, y: set.y[j] })), // ✅ overlay with pairs too
+      //   borderColor: `hsl(${(i * 50 + 120) % 360}, 70%, 50%)`,
+      //   borderWidth: selectedOverlayIndex === i ? 3 : 1,
+      //   pointRadius: 0,
+      //   tension: 0,
+      //   fill: false,
+      // }))
     ]
   };
 
@@ -329,11 +365,11 @@ function App() {
         annotations: {
           tailRegion: posPeak != null && {
             type: 'box',
-            // xMin: dataPoints.x[posPeak + 6/0.01], // Start of the tail region
-            // xMax: dataPoints.x[posPeak + 50/0.01], // End of the tail region
+            // xMin: dataPoints.x[posPeak + 6], // Start of the tail region
+            // xMax: dataPoints.x[posPeak + 70], // End of the tail region
             // yMin: Math.min(...dataPoints.y), // Minimum y-value
             // // yMax: Math.max(...dataPoints.y), // Maximum y-value
-            // yMax: Math.max(...dataPoints.y.slice(posPeak + 6/0.01)), // Maximum y-value from posPeak + 6
+            // yMax: Math.max(...dataPoints.y.slice(posPeak + 6)), // Maximum y-value from posPeak + 6
             xMin: dataPoints.x[posPeak + tailOffset / 0.01], // Start of the tail region
             xMax: dataPoints.x[posPeak + (tailOffset + 50) / 0.01], // End of the tail region
             yMin: Math.min(...dataPoints.y), // Minimum y-value
@@ -424,21 +460,22 @@ function App() {
 
   // Adding a table, below the button Past parameters, showing the integral, max deviation, and class of the response function
   const [responseMetrics, setResponseMetrics] = useState({
-    integralOfTail: 'Unknown',
-    maxDeviation: 'Unknown',
-    responseClass: 'Unknown',
+    integralOfTail: 0,
+    maxDeviation: 0,
+    // responseClass: 'Unknown',
   });
 
   // Reset the canvas
   const resetCanvas = () => {
     setParams([5, 75000, 2.2, 0.1, 0.1, 0.03, 0.03]); // Reset parameters to default
-    setOverlayData([]); // Clear overlays
+    // setOverlayData([]); // Clear overlays
     setTailOffset(6); // Reset tail offset to default
-    setSelectedOverlayIndex(null); // Deselect any overlays
+    // setSelectedOverlayIndex(null); // Deselect any overlays
+    setDataId('');
     setResponseMetrics({
-      integralOfTail: 'Unknown',
-      maxDeviation: 'Unknown',
-      responseClass: 'Unknown',
+      integralOfTail: 0,
+      maxDeviation: 0,
+      // responseClass: 'Unknown',
     }); // Reset response metrics
   };
 
@@ -449,22 +486,22 @@ function App() {
     const yIdeal = x.map(val => responseLegacy(val, params)); // Calculate the ideal response
     setDataPoints({ x, y, yIdeal });
 
-    // Calculate metrics
-    const metrics = calculateMetrics(params);
-    setResponseMetrics(metrics);
+    // // Calculate metrics
+    // const metrics = calculateMetrics(params);
+    // setResponseMetrics(metrics);
 
     // Find the peak in the ideal response
     const pos_peak = yIdeal.indexOf(Math.max(...yIdeal));
     setPosPeak(pos_peak); // Store pos_peak in state
   }, [params]); // Recalculate when params change
 
-  // Recalculate metrics when tailOffset changes
-  useEffect(() => {
-    if (posPeak !== null) {
-      const metrics = calculateMetrics(params);
-      setResponseMetrics(metrics);
-    }
-  }, [tailOffset, params, posPeak]); // Dependencies include tailOffset, params, and posPeak
+  // // Recalculate metrics when tailOffset changes
+  // useEffect(() => {
+  //   if (posPeak !== null) {
+  //     const metrics = calculateMetrics(params);
+  //     setResponseMetrics(metrics);
+  //   }
+  // }, [tailOffset, params, posPeak]); // Dependencies include tailOffset, params, and posPeak
 
 
 
@@ -494,7 +531,7 @@ function App() {
           maxHeight: '80vh',
           overflowY: 'auto'
         }}>
-          <select
+          {/* <select
             value={selectedOverlayIndex === null ? 'default' : selectedOverlayIndex}
             onChange={(e) => setSelectedOverlayIndex(e.target.value === 'default' ? null : parseInt(e.target.value))}
             style={{ marginBottom: '10px', width: '100%', padding: '5px', borderRadius: '5px' }}
@@ -556,7 +593,7 @@ function App() {
               borderRadius: '5px',
               cursor: 'pointer'
             }}>Download CSV</button>
-          </div>
+          </div> */}
           <div style={{ marginTop: '1rem' }}>
             <label style={{ color: '#495057' }}>
               <input
@@ -568,7 +605,7 @@ function App() {
             </label>
           </div>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+          {/* <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
             <button onClick={() => setShowInputModal(true)} style={{
               backgroundColor: '#0000ff',
               color: '#fff',
@@ -591,9 +628,9 @@ function App() {
             >
               Reset Canvas
             </button>
-          </div>
+          </div> */}
 
-          {/*Slider changing the tailOffset */}
+          {/* Slider changing the tailOffset
           <div style={{ marginTop: '20px' }}>
             <label style={{ color: '#495057', fontWeight: 'bold', marginRight: '10px' }}>
               Tail Offset:
@@ -608,7 +645,53 @@ function App() {
               style={{ width: '200px' }}
             />
             <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>{tailOffset}</span>
+          </div> */}
+          
+
+          {/* */}
+          <div style={{ marginTop: '20px' }}>
+            <label style={{ marginRight: '10px', fontWeight: 'bold', color: '#495057' }}>
+              Enter channel number:
+            </label>
+            <input
+              type="text"
+              value={dataId}
+              onChange={(e) => setDataId(e.target.value)}
+              style={{
+                padding: '5px',
+                border: '1px solid #ced4da',
+                borderRadius: '5px',
+                marginRight: '10px',
+              }}
+            />
+            <button
+              onClick={() => fetchDataById(dataId)}
+              style={{
+                backgroundColor: '#007bff',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              Show
+            </button>
+            <button
+              onClick={resetCanvas}
+              style={{
+                backgroundColor: '#dc3545',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              Reset Canvas
+            </button>
           </div>
+          {/** */}
 
           {showInputModal && (
             <div style={{
