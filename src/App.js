@@ -145,13 +145,7 @@ function App() {
     // const reltime = t.map(val => val / tp);
     const reltime = t/tp;
     const gain = A0 * 1.012;
-    // console.log("x", x);
-    // console.log("t", t);
-    // console.log("A0", A0);
-    // console.log("tp", tp);
-    // console.log("reltime", reltime);
-    // console.log("gain", gain);
-    // console.log("params", par);
+
     const value = 4.31054 * Math.exp(-2.94809 * reltime) * gain -
       2.6202 * Math.exp(-2.82833 * reltime) * Math.cos(1.19361 * reltime) * gain -
       2.6202 * Math.exp(-2.82833 * reltime) * Math.cos(1.19361 * reltime) * Math.cos(2.38722 * reltime) * gain +
@@ -169,126 +163,12 @@ function App() {
     return t>0 ? value : 0;
   }
 
-  // // Helper function for trapezoidal integration
-  // function trapezoidalIntegration(x, y) {
-  //   let integral = 0;
-  //   for (let i = 0; i < x.length - 1; i++) {
-  //     integral += 0.5 * (x[i + 1] - x[i]) * (y[i] + y[i + 1]);
-  //   }
-  //   return integral;
-  // }
-
-  // // Calculate the integral of the tail and the maximum deviation of the tail of the real response from the ideal
-  // function calculateMetrics(params) {
-  //   const x = generateX();
-  //   const R = x.map(val => response(val, params));
-  //   // x = generateX();
-  //   const R_ideal = x.map(val => responseLegacy(val, params));
-
-  //   // Find the peak in the ideal response
-  //   const pos_peak = R_ideal.indexOf(Math.max(...R_ideal));
-
-  //   // Define the tail region
-  //   // const xtail = x.slice(pos_peak + 6);
-  //   // const y1 = R.slice(pos_peak + 6);
-  //   // const y2 = R_ideal.slice(pos_peak + 6);
-  //   const xtail = x.slice(pos_peak + tailOffset);
-  //   const y1 = R.slice(pos_peak + tailOffset);
-  //   const y2 = R_ideal.slice(pos_peak + tailOffset);
-
-  //   // Select data for integration
-  //   const x_selected = xtail.slice(0, 50); // Fixed integration domain
-  //   const R_selected = y1.slice(0, 50);
-  //   const R_ideal_selected = y2.slice(0, 50);
-
-  //   // Calculate integrals using the trapezoidal rule
-  //   const integral_R_selected = trapezoidalIntegration(x_selected, R_selected);
-  //   // const integral_R_ideal_selected = trapezoidalIntegration(x_selected, R_ideal_selected);
-
-  //   // Calculate deviations
-  //   const deviations = R_selected.map((val, i) => val - R_ideal_selected[i]);
-  //   // const max_deviation = Math.max(...deviations.map(Math.abs));
-  //   let max_dev = Math.max(...deviations);
-  //   let min_dev = Math.min(...deviations);
-  //   let max_deviation = max_dev;
-  //   if (max_deviation < Math.abs(min_dev)) {
-  //     max_deviation = min_dev;
-  //   }
-
-  //   return {
-  //     integralOfTail: integral_R_selected.toFixed(2),
-  //     maxDeviation: max_deviation.toFixed(2),
-  //     responseClass: "Unknown" // Placeholder for now
-  //   };
-  // }
-
   useEffect(() => {
     const x = generateX();
     const y = x.map(val => response(val, params));
     const yIdeal = x.map(val => responseLegacy(val, params)); // Calculate the ideal response
     setDataPoints({ x, y, yIdeal }); // Store both response and ideal response
   }, [params]); // Recalculate when params change
-
-  // const handleChange = (index, event) => {
-  //   const newValue = parseFloat(event.target.value);
-  //   if (selectedOverlayIndex === null) {
-  //     const newParams = [...params];
-  //     newParams[index] = newValue;
-  //     setParams(newParams);
-  //   } else {
-  //     const newOverlayData = [...overlayData];
-  //     const selectedOverlay = newOverlayData[selectedOverlayIndex];
-  //     const x = selectedOverlay.x;
-  //     const newParams = [...params];
-  //     newParams[index] = newValue;
-  //     const newY = x.map(val => response(val, newParams));
-  //     newOverlayData[selectedOverlayIndex] = { x, y: newY };
-  //     setOverlayData(newOverlayData);
-  //   }
-  // };
-
-
-  // const handleInputChange = (index, event) => {
-  //   const newValue = Number(event.target.value);
-  //   if (selectedOverlayIndex === null) {
-  //     const newParams = [...params];
-  //     newParams[index] = newValue;
-  //     setParams(newParams);
-  //   } else {
-  //     const newOverlayData = [...overlayData];
-  //     const selectedOverlay = newOverlayData[selectedOverlayIndex];
-  //     const x = selectedOverlay.x;
-  //     const newParams = [...params];
-  //     newParams[index] = newValue;
-  //     const newY = x.map(val => response(val, newParams));
-  //     newOverlayData[selectedOverlayIndex] = { x, y: newY };
-  //     setOverlayData(newOverlayData);
-  //   }
-  // };
-
-  // const addOverlay = () => {
-  //   setOverlayData([...overlayData, { ...dataPoints, params: [...params] }]);
-  // };
-
-  // const downloadCSV = () => {
-  //   const { x, y } = dataPoints;
-  //   const csv = ['time,response', ...x.map((t, i) => `${t},${y[i]}`)].join('\n');
-  //   const blob = new Blob([csv], { type: 'text/csv' });
-  //   const a = document.createElement('a');
-  //   a.href = URL.createObjectURL(blob);
-  //   a.download = 'response_curve.csv';
-  //   a.click();
-  // };
-
-  // const sliders = [
-  //   { label: 't₀', min: 4.6, max: 5.5, step: 0.01 },
-  //   { label: 'A₀', min: 0, max: 100000, step: 1000 },
-  //   { label: 'tₚ', min: 1.9, max: 2.3, step: 0.01 },
-  //   { label: 'k₃', min: -10, max: 10, step: 0.01 },
-  //   { label: 'k₄', min: -10, max: 10, step: 0.01 },
-  //   { label: 'k₅', min: -10, max: 10, step: 0.01 },
-  //   { label: 'k₆', min: -10, max: 10, step: 0.01 },
-  // ];
 
 
   // fetch the data
@@ -309,8 +189,8 @@ function App() {
       // console.log(params);
       // setDataPoints({ x: data.x, y: data.y }); // Update the dataPoints state with the API response
       setResponseMetrics({
-        integralOfTail: data.integral_R,
-        maxDeviation: data.max_deviation,
+        integralOfTail: Math.round(data.integral_R*10000, 4)/10000,
+        maxDeviation: Math.round(data.max_deviation*10000, 4)/10000,
         responseClass: data.class
       })
     } catch (error) {
@@ -360,37 +240,37 @@ function App() {
         display: true,
         text: 'Response Function Value vs. Time'
       },
-      // Draw a rectangle highlighting the region selected for the calculation of the integral of the tail
-      annotation: {
-        annotations: {
-          tailRegion: posPeak != null && {
-            type: 'box',
-            // xMin: dataPoints.x[posPeak + 6], // Start of the tail region
-            // xMax: dataPoints.x[posPeak + 70], // End of the tail region
-            // yMin: Math.min(...dataPoints.y), // Minimum y-value
-            // // yMax: Math.max(...dataPoints.y), // Maximum y-value
-            // yMax: Math.max(...dataPoints.y.slice(posPeak + 6)), // Maximum y-value from posPeak + 6
-            xMin: dataPoints.x[posPeak + tailOffset / 0.01], // Start of the tail region
-            xMax: dataPoints.x[posPeak + (tailOffset + 50) / 0.01], // End of the tail region
-            yMin: Math.min(...dataPoints.y), // Minimum y-value
-            yMax: Math.max(...dataPoints.y.slice(posPeak + tailOffset / 0.01)), // Maximum y-value from posPeak + tailOffset
-            backgroundColor: 'rgba(0, 0, 255, 0.1)', // Light blue
-            borderColor: 'blue',
-            borderWidth: 1,
-            label: {
-              display: true, // Enable the label
-              content: 'Selected Tail', // Text to display
-              position: 'center', // Position the label in the center of the box
-              color: 'black', // Text color
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', // Background color for the label
-              font: {
-                size: 14, // Font size
-                weight: 'bold', // Font weight
-              },
-            },
-          },
-        },
-      },
+      // // Draw a rectangle highlighting the region selected for the calculation of the integral of the tail ------------- MIGHT BE USEFUL FOR VISUALIZATION
+      // annotation: {
+      //   annotations: {
+      //     tailRegion: posPeak != null && {
+      //       type: 'box',
+      //       // xMin: dataPoints.x[posPeak + 6], // Start of the tail region
+      //       // xMax: dataPoints.x[posPeak + 70], // End of the tail region
+      //       // yMin: Math.min(...dataPoints.y), // Minimum y-value
+      //       // // yMax: Math.max(...dataPoints.y), // Maximum y-value
+      //       // yMax: Math.max(...dataPoints.y.slice(posPeak + 6)), // Maximum y-value from posPeak + 6
+      //       xMin: dataPoints.x[posPeak + tailOffset / 0.01], // Start of the tail region
+      //       xMax: dataPoints.x[posPeak + (tailOffset + 50) / 0.01], // End of the tail region
+      //       yMin: Math.min(...dataPoints.y), // Minimum y-value
+      //       yMax: Math.max(...dataPoints.y.slice(posPeak + tailOffset / 0.01)), // Maximum y-value from posPeak + tailOffset
+      //       backgroundColor: 'rgba(0, 0, 255, 0.1)', // Light blue
+      //       borderColor: 'blue',
+      //       borderWidth: 1,
+      //       label: {
+      //         display: true, // Enable the label
+      //         content: 'Selected Tail', // Text to display
+      //         position: 'center', // Position the label in the center of the box
+      //         color: 'black', // Text color
+      //         backgroundColor: 'rgba(255, 255, 255, 0.8)', // Background color for the label
+      //         font: {
+      //           size: 14, // Font size
+      //           weight: 'bold', // Font weight
+      //         },
+      //       },
+      //     },
+      //   },
+      // },
     },
     // Add a zooming option
     zoom: {
@@ -495,15 +375,6 @@ function App() {
     setPosPeak(pos_peak); // Store pos_peak in state
   }, [params]); // Recalculate when params change
 
-  // // Recalculate metrics when tailOffset changes
-  // useEffect(() => {
-  //   if (posPeak !== null) {
-  //     const metrics = calculateMetrics(params);
-  //     setResponseMetrics(metrics);
-  //   }
-  // }, [tailOffset, params, posPeak]); // Dependencies include tailOffset, params, and posPeak
-
-
 
   // Return
   return (
@@ -531,69 +402,7 @@ function App() {
           maxHeight: '80vh',
           overflowY: 'auto'
         }}>
-          {/* <select
-            value={selectedOverlayIndex === null ? 'default' : selectedOverlayIndex}
-            onChange={(e) => setSelectedOverlayIndex(e.target.value === 'default' ? null : parseInt(e.target.value))}
-            style={{ marginBottom: '10px', width: '100%', padding: '5px', borderRadius: '5px' }}
-          >
-            <option value="default">Base Curve</option>
-            {overlayData.map((_, index) => (
-              <option key={index} value={index}>Overlay {index + 1}</option>
-            ))}
-          </select>
-          {sliders.map((s, i) => (
-            <div key={i} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
-              <label style={{
-                width: '30px',
-                fontWeight: 'bold',
-                color: '#495057',
-                marginRight: '5px'
-              }}>{s.label}:</label>
-              <input
-                type='number'
-                value={selectedOverlayIndex === null ? params[i] : overlayData[selectedOverlayIndex].params ? overlayData[selectedOverlayIndex].params[i] : params[i]}
-                step={s.step}
-                min={s.min}
-                max={s.max}
-                onChange={(e) => handleInputChange(i, e)}
-                style={{
-                  width: '70px',
-                  padding: '5px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px',
-                  marginRight: '5px'
-                }}
-              />
-              <input
-                type='range'
-                min={s.min}
-                max={s.max}
-                step={s.step}
-                value={selectedOverlayIndex === null ? params[i] : overlayData[selectedOverlayIndex].params ? overlayData[selectedOverlayIndex].params[i] : params[i]}
-                onChange={(e) => handleChange(i, e)}
-                style={{ width: 'calc(100% - 110px)' }}
-              />
-            </div>
-          ))}
-          <div style={{ display: 'flex', marginBottom: '10px' }}>
-            <button onClick={addOverlay} style={{
-              backgroundColor: '#007bff',
-              color: '#fff',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              marginRight: '10px'
-            }}>Add a curve</button>
-            <button onClick={downloadCSV} style={{
-              backgroundColor: '#28a745',
-              color: '#fff',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}>Download CSV</button>
-          </div> */}
+ 
           <div style={{ marginTop: '1rem' }}>
             <label style={{ color: '#495057' }}>
               <input
@@ -604,48 +413,6 @@ function App() {
               Show zero line
             </label>
           </div>
-          
-          {/* <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <button onClick={() => setShowInputModal(true)} style={{
-              backgroundColor: '#0000ff',
-              color: '#fff',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}>Input Params</button>
-            
-            <button
-              onClick={resetCanvas}
-              style={{
-                backgroundColor: '#dc3545',
-                color: '#fff',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '5px',
-                cursor: 'pointer',
-              }}
-            >
-              Reset Canvas
-            </button>
-          </div> */}
-
-          {/* Slider changing the tailOffset
-          <div style={{ marginTop: '20px' }}>
-            <label style={{ color: '#495057', fontWeight: 'bold', marginRight: '10px' }}>
-              Tail Offset:
-            </label>
-            <input
-              type="range"
-              min={-6} // Minimum value for the offset
-              max={20} // Maximum value for the offset
-              step={1} // Step size
-              value={tailOffset}
-              onChange={(e) => setTailOffset(Number(e.target.value))}
-              style={{ width: '200px' }}
-            />
-            <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>{tailOffset}</span>
-          </div> */}
           
 
           {/* */}
