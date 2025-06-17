@@ -27,7 +27,7 @@ function App() {
 
   // add a new state for pos_peak
   const [posPeak, setPosPeak] = useState(null);
-  const [tailOffset, setTailOffset] = useState(6); // Default value is 6
+  const [tailOffset, setTailOffset] = useState(4); // Default value is 6
 
   const generateX = () => Array.from({ length: 5000 }, (_, i) => i * 0.01); // 0 to 50 us
   // const generateX = () => Array.from({ length: 70 }, (_, i) => i * 1); // 0 to 50 us
