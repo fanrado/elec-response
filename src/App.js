@@ -19,7 +19,11 @@ ChartJS.register(LineElement, PointElement, LinearScale, Title, CategoryScale, L
 function App() {
 
   const [params, setParams] = useState([5, 75000, 2.2, 0.1, 0.1, 0.03, 0.03]); // t, A0, t_p, k3, k4, k5, k6
-  const [dataPoints, setDataPoints] = useState({ x: [], y: [] });
+  const [dataPoints, setDataPoints] = useState({ x: [], y: [], yIdeal: []});
+  const [realResponse, setRealResponse] = useState({
+    x : [],
+    waveform: []
+  });
   // const [overlayData, setOverlayData] = useState([]);
   const [showZeroLine, setShowZeroLine] = useState(true);
   // const [selectedOverlayIndex, setSelectedOverlayIndex] = useState(null);
@@ -27,13 +31,21 @@ function App() {
 
   // add a new state for pos_peak
   const [posPeak, setPosPeak] = useState(null);
-  const [tailOffset, setTailOffset] = useState(4); // Default value is 6
+  const [tailOffset, setTailOffset] = useState(8); // Default value is 6
 
-  const generateX = () => Array.from({ length: 5000 }, (_, i) => i * 0.01); // 0 to 50 us
-  // const generateX = () => Array.from({ length: 70 }, (_, i) => i * 1); // 0 to 50 us
+  // Adding a table, below the button Past parameters, showing the integral, max deviation, and class of the response function
+  const [responseMetrics, setResponseMetrics] = useState({
+    integralOfTail: 0,
+    maxDeviation: 0,
+    chi2ndf : 0,
+    // responseClass: 'Unknown',
+  });
+
+  // const generateX = () => Array.from({ length: 5000 }, (_, i) => i * 0.01); // 0 to 50 us
+  const generateX = () => Array.from({ length: 70 }, (_, i) => i*0.512); // 0 to 50 us
 
   // Translated JavaScript response function
-  function response(x, par) {
+  function responseReal(x, par) {
     const t = x - par[0];
     const A0 = par[1];
     const tp = par[2];
@@ -165,14 +177,73 @@ function App() {
 
   useEffect(() => {
     const x = generateX();
-    const y = x.map(val => response(val, params));
+    const y = x.map(val => responseReal(val, params));
     const yIdeal = x.map(val => responseLegacy(val, params)); // Calculate the ideal response
-    setDataPoints({ x, y, yIdeal }); // Store both response and ideal response
+    setDataPoints({ x: x, y: y, yIdeal: yIdeal}); // Store both response and ideal response
   }, [params]); // Recalculate when params change
 
+  /////////////////////////////////////////////////////////////////////////////
+  // Add chi-squared calculation function
+  const calculateChi2NDF = (realWaveform, calculatedResponse, realTimePoints, calcTimePoints) => {
+    if (realWaveform.length === 0 || calculatedResponse.length === 0) {
+      return 0;
+    }
+    
+    let chi2 = 0;
+    let validPoints = 0;
+    
+    // Interpolate calculated response to match real response time points
+    for (let i = 0; i < realWaveform.length; i++) {
+      const timePoint = realTimePoints[i];
+      
+      // Find the corresponding calculated value by interpolation
+      let calculatedValue = 0;
+      
+      // Find the closest time points in the calculated data
+      let lowerIndex = -1;
+      let upperIndex = -1;
+      
+      for (let j = 0; j < calcTimePoints.length - 1; j++) {
+        if (calcTimePoints[j] <= timePoint && calcTimePoints[j + 1] >= timePoint) {
+          lowerIndex = j;
+          upperIndex = j + 1;
+          break;
+        }
+      }
+      
+      if (lowerIndex >= 0 && upperIndex >= 0) {
+        // Linear interpolation
+        const t1 = calcTimePoints[lowerIndex];
+        const t2 = calcTimePoints[upperIndex];
+        const y1 = calculatedResponse[lowerIndex];
+        const y2 = calculatedResponse[upperIndex];
+        
+        if (t2 !== t1) {
+          calculatedValue = y1 + (y2 - y1) * (timePoint - t1) / (t2 - t1);
+        } else {
+          calculatedValue = y1;
+        }
+        
+        // Calculate chi2 contribution
+        if (!isNaN(realWaveform[i]) && !isNaN(calculatedValue)) {
+          const residual = realWaveform[i] - calculatedValue;
+          // Use a reasonable estimate for uncertainty (could be improved with actual error bars)
+          const uncertainty = Math.max(Math.sqrt(Math.abs(realWaveform[i])), 1);
+          chi2 += (residual * residual) / (uncertainty * uncertainty);
+          validPoints++;
+        }
+      }
+    }
+    
+    const ndf = validPoints - 7; // 7 parameters in your fit (t, A0, t_p, k3, k4, k5, k6)
+    return ndf > 0 ? chi2 / ndf : 0;
+  }; ///////////////////////////////////////////////////////////////////
 
+
+  const [isLoading, setIsLoading] = useState(false);
   // fetch the data
   const fetchDataById = async (data_id) => {
+    setIsLoading(true);
     try {
       const response = await fetch(`http://127.0.0.1:5000/data/${data_id}`, {
         method: 'GET',
@@ -183,18 +254,28 @@ function App() {
       }
 
       const data = await response.json();
-      // console.log(data);
       // t, A0, t_p, k3, k4, k5, k6
       setParams([data.t, data.A_0, data.t_p, data.k3, data.k4, data.k5, data.k6]);
-      // console.log(params);
       // setDataPoints({ x: data.x, y: data.y }); // Update the dataPoints state with the API response
       setResponseMetrics({
         integralOfTail: Math.round(data.integral_R*10000, 4)/10000,
         maxDeviation: Math.round(data.max_deviation*10000, 4)/10000,
         responseClass: data.class
       })
+      
+      setRealResponse({
+        x: data.timeticks,
+        waveform: data.realResp
+      })
+      setIsLoading(false);
+      // setDataPoints({
+      //   xrealresp: data.timeticks,
+      //   yrealresp: data.realResp
+      // })
+
     } catch (error) {
       console.error('Error fetching data from API:', error);
+      setIsLoading(false);
     }
   };
 
@@ -202,7 +283,7 @@ function App() {
   const chartData = {
     datasets: [
       {
-        label: 'Response Curve',
+        label: 'Calculate Response Curve after fit',
         data: dataPoints.x.map((x, i) => ({ x, y: dataPoints.y[i] })), // ✅ PAIRS!
         borderColor: 'red',
         borderWidth: 2,
@@ -211,14 +292,25 @@ function App() {
         fill: false,
       },
       {
-        label: 'Ideal Response Curve',
-        data: dataPoints.x.map((x, i) => ({ x, y: dataPoints.yIdeal[i] })), // Ideal response curve
+        label: 'Real Response Curve',
+        // data: dataPoints.x.map((x, i) => ({ x, y: dataPoints.yIdeal[i] })), // Ideal response curve
+        data: realResponse.x.map((x, i) => ({ x, y: realResponse.waveform[i] })), // Ideal response curve
         borderColor: 'blue',
         borderWidth: 2,
         tension: 0,
         pointRadius: 0,
         fill: false,
         borderDash: [5, 5], // Dashed line for distinction
+      },
+      {
+        label: 'Ideal Response Curve',
+        data: dataPoints.x.map((x, i) => ({ x, y: dataPoints.yIdeal[i] })), // Ideal response curve
+        borderColor: 'green',
+        borderWidth: 2,
+        tension: 0,
+        pointRadius: 0,
+        fill: false,
+        // borderDash: [5, 5], // Dashed line for distinction
       },
       // ...overlayData.map((set, i) => ({
       //   label: `Overlay ${i + 1}`,
@@ -338,33 +430,49 @@ function App() {
     }
   };
 
-  // Adding a table, below the button Past parameters, showing the integral, max deviation, and class of the response function
-  const [responseMetrics, setResponseMetrics] = useState({
-    integralOfTail: 0,
-    maxDeviation: 0,
-    // responseClass: 'Unknown',
-  });
-
   // Reset the canvas
   const resetCanvas = () => {
     setParams([5, 75000, 2.2, 0.1, 0.1, 0.03, 0.03]); // Reset parameters to default
     // setOverlayData([]); // Clear overlays
-    setTailOffset(6); // Reset tail offset to default
+    setTailOffset(8); // Reset tail offset to default
     // setSelectedOverlayIndex(null); // Deselect any overlays
     setDataId('');
+
+    setRealResponse({
+      x: [],
+      waveform: []
+    }); // Reset real response
+
     setResponseMetrics({
       integralOfTail: 0,
       maxDeviation: 0,
-      // responseClass: 'Unknown',
+      chi2ndf: 0
     }); // Reset response metrics
   };
 
   // useEffect functions
   useEffect(() => {
     const x = generateX();
-    const y = x.map(val => response(val, params));
+    const y = x.map(val => responseReal(val, params));
     const yIdeal = x.map(val => responseLegacy(val, params)); // Calculate the ideal response
-    setDataPoints({ x, y, yIdeal });
+    // setDataPoints({ x, y, yIdeal });
+    setDataPoints({x: x, y: y, yIdeal: yIdeal});
+    
+    /////////////////////////////////////////////////////////////////
+    // Calculate chi2/ndf if we have real response data
+    if (realResponse.waveform.length > 0) {
+      const chi2ndf = calculateChi2NDF(
+        realResponse.waveform, 
+        dataPoints.y, 
+        realResponse.x, 
+        dataPoints.x
+      );
+      
+      setResponseMetrics(prev => ({
+        ...prev,
+        chi2ndf: Math.round(chi2ndf * 10000, 4) / 10000 // Round to 4 decimal places
+      }));
+    } /////////////////////////////////////////////////////////////////
 
     // // Calculate metrics
     // const metrics = calculateMetrics(params);
@@ -542,6 +650,10 @@ function App() {
                 <tr>
                   <td style={{ padding: '8px', borderBottom: '1px solid #ced4da' }}>Maximum Deviation</td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #ced4da' }}>{responseMetrics.maxDeviation}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #ced4da' }}>Chi²/NDF</td>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #ced4da' }}>{responseMetrics.chi2ndf}</td>
                 </tr>
                 <tr>
                   <td style={{ padding: '8px' }}>Response Class</td>
